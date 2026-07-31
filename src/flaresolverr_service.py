@@ -1,3 +1,7 @@
+import os
+import base64
+import requests
+from urllib.parse import urljoin, urlsplit
 import logging
 import platform
 import sys
@@ -334,6 +338,7 @@ def _resolve_turnstile_captcha(req: V1RequestBase, driver: WebDriver):
     return turnstile_token
 
 def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> ChallengeResolutionT:
+
     res = ChallengeResolutionT({})
     res.status = STATUS_OK
     res.message = ""
@@ -478,6 +483,61 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
             time.sleep(req.waitInSeconds)
 
         challenge_res.response = driver.page_source
+
+        # ADD DOWNLOAD CODE HERE
+        logging.info("Waiting " + str(req.waitInSeconds) + " updatedd for download files...")
+        if req.download:
+            img_elements = driver.find_elements(By.TAG_NAME, "img")
+
+            resp = []
+
+            for img in img_elements:
+                try:
+                    src = img.get_attribute("src")
+
+                    if src:
+                        img_url = urljoin(driver.current_url, src)
+
+                        cookies = {
+                            cookie["name"]: cookie["value"]
+                            for cookie in driver.get_cookies()
+                        }
+
+                        headers = {
+                            "User-Agent": utils.get_user_agent(driver),
+                            "Referer": driver.current_url
+                        }
+
+                        response = requests.get(
+                            img_url,
+                            headers=headers,
+                            cookies=cookies,
+                            timeout=10
+                        )
+
+                        if response.status_code == 200:
+                            filename = os.path.basename(urlsplit(img_url).path)
+                            mime_type = response.headers.get(
+                                "Content-Type",
+                                "image/jpeg"
+                            )
+
+                            b64_data = base64.b64encode(
+                                response.content
+                            ).decode("utf-8")
+
+                            resp.append({
+                                "url": img_url,
+                                "filename": filename,
+                                "mime_type": mime_type,
+                                "encoded_data": b64_data
+                            })
+
+                except Exception as e:
+                    logging.error(f"Error downloading image: {e}")
+
+            challenge_res.download = resp
+
 
     if req.returnScreenshot:
         challenge_res.screenshot = driver.get_screenshot_as_base64()
