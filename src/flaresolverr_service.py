@@ -337,6 +337,47 @@ def _resolve_turnstile_captcha(req: V1RequestBase, driver: WebDriver):
             logging.debug(f'Turnstile challenge not found')
     return turnstile_token
 
+def _get_product_count(
+        driver: WebDriver,
+        product_selector: str
+) -> int:
+
+    try:
+        return len(
+            driver.find_elements(
+                By.CSS_SELECTOR,
+                product_selector
+            )
+        )
+
+    except Exception:
+        return 0
+
+
+def _scroll_page(
+        driver: WebDriver,
+        scroll_count: int,
+        wait_seconds: float = 2
+):
+    for i in range(scroll_count):
+
+        logging.info(
+            f"Scrolling {i + 1}/{scroll_count}"
+        )
+
+        driver.execute_script("""
+            window.scrollBy(
+                0,
+                Math.floor(window.innerHeight * 0.8)
+            );
+        """)
+
+        time.sleep(wait_seconds)
+
+    logging.info(
+        f"Scrolling finished after {scroll_count} scrolls"
+    )
+
 def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> ChallengeResolutionT:
 
     res = ChallengeResolutionT({})
@@ -476,18 +517,35 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
     challenge_res.turnstile_token = turnstile_token
 
     if not req.returnOnlyCookies:
-        challenge_res.headers = {}  # todo: fix, selenium not provides this info
+
+        challenge_res.headers = {}
 
         if req.waitInSeconds and req.waitInSeconds > 0:
-            logging.info("Waiting " + str(req.waitInSeconds) + " seconds before returning the response...")
+            logging.info(
+                "Waiting " +
+                str(req.waitInSeconds) +
+                " seconds before returning the response..."
+            )
             time.sleep(req.waitInSeconds)
 
+        # Dynamic scrolling
+        if req.scroll is not None:
+
+            _scroll_page(
+                driver=driver,
+                scroll_count=int(req.scroll)
+            )
+
+        # Get HTML after scrolling
         challenge_res.response = driver.page_source
 
-        # ADD DOWNLOAD CODE HERE
-        logging.info("Waiting " + str(req.waitInSeconds) + " updatedd for download files...")
+        # Existing download code stays here
         if req.download:
-            img_elements = driver.find_elements(By.TAG_NAME, "img")
+
+            img_elements = driver.find_elements(
+                By.TAG_NAME,
+                "img"
+            )
 
             resp = []
 
@@ -496,7 +554,10 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
                     src = img.get_attribute("src")
 
                     if src:
-                        img_url = urljoin(driver.current_url, src)
+                        img_url = urljoin(
+                            driver.current_url,
+                            src
+                        )
 
                         cookies = {
                             cookie["name"]: cookie["value"]
@@ -516,7 +577,11 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
                         )
 
                         if response.status_code == 200:
-                            filename = os.path.basename(urlsplit(img_url).path)
+
+                            filename = os.path.basename(
+                                urlsplit(img_url).path
+                            )
+
                             mime_type = response.headers.get(
                                 "Content-Type",
                                 "image/jpeg"
@@ -534,10 +599,12 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
                             })
 
                 except Exception as e:
-                    logging.error(f"Error downloading image: {e}")
+
+                    logging.error(
+                        f"Error downloading image: {e}"
+                    )
 
             challenge_res.download = resp
-
 
     if req.returnScreenshot:
         challenge_res.screenshot = driver.get_screenshot_as_base64()

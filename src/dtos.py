@@ -1,4 +1,3 @@
-
 STATUS_OK = "ok"
 STATUS_ERROR = "error"
 
@@ -24,11 +23,15 @@ class ChallengeResolutionT:
 
     def __init__(self, _dict):
         self.__dict__.update(_dict)
+
         if self.result is not None:
-            self.result = ChallengeResolutionResultT(self.result)
+            self.result = ChallengeResolutionResultT(
+                self.result
+            )
 
 
 class V1RequestBase(object):
+
     # V1RequestBase
     cmd: str = None
     cookies: list = None
@@ -36,27 +39,32 @@ class V1RequestBase(object):
     proxy: dict = None
     session: str = None
     session_ttl_minutes: int = None
-    headers: list = None  # deprecated v2.0.0, not used
-    userAgent: str = None  # deprecated v2.0.0, not used
+
+    headers: list = None
+    userAgent: str = None
 
     # V1Request
     url: str = None
     postData: str = None
     returnOnlyCookies: bool = None
     returnScreenshot: bool = None
-    download: bool = None   # deprecated v2.0.0, not used
-    returnRawHtml: bool = None  # deprecated v2.0.0, not used
+    download: bool = None
+    returnRawHtml: bool = None
     waitInSeconds: int = None
-    # Optional resource blocking flag (blocks images, CSS, and fonts)
+
     disableMedia: bool = None
-    # Optional when you've got a turnstile captcha that needs to be clicked after X number of Tab presses
-    tabs_till_verify : int = None
+
+    tabs_till_verify: int = None
+
+    # Dynamic page scrolling
+    scroll: int = None
 
     def __init__(self, _dict):
         self.__dict__.update(_dict)
 
 
 class V1ResponseBase(object):
+
     # V1ResponseBase
     status: str = None
     message: str = None
@@ -74,11 +82,15 @@ class V1ResponseBase(object):
 
     def __init__(self, _dict):
         self.__dict__.update(_dict)
+
         if self.solution is not None:
-            self.solution = ChallengeResolutionResultT(self.solution)
+            self.solution = ChallengeResolutionResultT(
+                self.solution
+            )
 
 
 class IndexResponse(object):
+
     msg: str = None
     version: str = None
     userAgent: str = None
@@ -88,6 +100,7 @@ class IndexResponse(object):
 
 
 class HealthResponse(object):
+
     status: str = None
 
     def __init__(self, _dict):
