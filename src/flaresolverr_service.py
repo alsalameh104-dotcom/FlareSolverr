@@ -357,26 +357,40 @@ def _get_product_count(
 def _scroll_page(
         driver: WebDriver,
         scroll_count: int,
-        wait_seconds: float = 2
+        wait_seconds: float = 10 # Set default wait to 5 seconds
 ):
-    for i in range(scroll_count):
+    import random
 
-        logging.info(
-            f"Scrolling {i + 1}/{scroll_count}"
-        )
+    for i in range(scroll_count):
+        logging.info(f"Scrolling {i + 1}/{scroll_count}")
 
         driver.execute_script("""
-            window.scrollBy(
-                0,
-                Math.floor(window.innerHeight * 0.8)
-            );
+            const smoothScroll = () => {
+                return new Promise((resolve) => {
+                    let target = Math.floor(window.innerHeight * 0.8);
+                    let scrolled = 0;
+                    let timer = setInterval(() => {
+                        let step = Math.floor(Math.random() * 40) + 10;
+                        if (scrolled + step >= target) {
+                            window.scrollBy(0, target - scrolled);
+                            clearInterval(timer);
+                            resolve();
+                        } else {
+                            window.scrollBy(0, step);
+                            scrolled += step;
+                        }
+                    }, 15);
+                });
+            };
+            smoothScroll();
         """)
 
-        time.sleep(wait_seconds)
+        # 5 seconds wait + a random human micro-delay
+        jitter = random.uniform(0.1, 0.6)
+        time.sleep(wait_seconds + jitter)
 
-    logging.info(
-        f"Scrolling finished after {scroll_count} scrolls"
-    )
+    logging.info(f"Scrolling finished after {scroll_count} scrolls")
+
 
 def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> ChallengeResolutionT:
 
