@@ -59,6 +59,7 @@ class V1RequestBase(object):
     # Dynamic page scrolling
     scroll: int = None
 
+    smoothScroll: int = None
     def __init__(self, _dict):
         self.__dict__.update(_dict)
 

@@ -357,7 +357,31 @@ def _get_product_count(
 def _scroll_page(
         driver: WebDriver,
         scroll_count: int,
-        wait_seconds: float = 10 # Set default wait to 5 seconds
+        wait_seconds: float = 2
+):
+    for i in range(scroll_count):
+
+        logging.info(
+            f"Scrolling {i + 1}/{scroll_count}"
+        )
+
+        driver.execute_script("""
+            window.scrollBy(
+                0,
+                Math.floor(window.innerHeight * 0.8)
+            );
+        """)
+
+        time.sleep(wait_seconds)
+
+    logging.info(
+        f"Scrolling finished after {scroll_count} scrolls"
+    )
+
+def _smoothScroll_page(
+        driver: WebDriver,
+        scroll_count: int,
+        wait_seconds: float = 6 # Set default wait to 5 seconds
 ):
     import random
 
@@ -389,7 +413,7 @@ def _scroll_page(
         jitter = random.uniform(0.1, 0.6)
         time.sleep(wait_seconds + jitter)
 
-    logging.info(f"Scrolling finished after {scroll_count} scrolls")
+    logging.info(f"Smooth Scrolling finished after {scroll_count} scrolls")
 
 
 def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> ChallengeResolutionT:
@@ -548,6 +572,13 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
             _scroll_page(
                 driver=driver,
                 scroll_count=int(req.scroll)
+            )
+
+        if req.smoothScroll is not None:
+
+            _smoothScroll_page(
+                driver=driver,
+                scroll_count=int(req.smoothScroll)
             )
 
         # Get HTML after scrolling
