@@ -186,6 +186,70 @@ def _cmd_request_post(req: V1RequestBase) -> V1ResponseBase:
     res.solution = challenge_res.result
     return res
 
+def _wait_for_page_to_stabilize(
+        driver: WebDriver,
+        timeout: int = 30,
+        stable_seconds: int = 3,
+        check_interval: float = 0.5
+):
+    logging.info("Waiting for page to stabilize...")
+
+    end_time = time.time() + timeout
+
+    # First wait until the browser considers the document fully loaded.
+    try:
+        WebDriverWait(driver, timeout).until(
+            lambda d: d.execute_script(
+                "return document.readyState"
+            ) == "complete"
+        )
+    except Exception:
+        logging.warning(
+            "Document did not reach readyState=complete within %s seconds.",
+            timeout
+        )
+
+    last_html = None
+    stable_since = None
+
+    while time.time() < end_time:
+
+        try:
+            html = driver.execute_script(
+                "return document.documentElement.outerHTML;"
+            )
+        except Exception as e:
+            logging.warning(
+                "Could not read page HTML while waiting for stabilization: %s",
+                e
+            )
+            stable_since = None
+            time.sleep(check_interval)
+            continue
+
+        if html == last_html:
+
+            if stable_since is None:
+                stable_since = time.time()
+
+            if time.time() - stable_since >= stable_seconds:
+                logging.info(
+                    "Page stabilized after %.1f seconds.",
+                    stable_seconds
+                )
+                return
+
+        else:
+            # The DOM changed.
+            last_html = html
+            stable_since = time.time()
+
+        time.sleep(check_interval)
+
+    logging.warning(
+        "Page did not stabilize within %s seconds.",
+        timeout
+    )
 
 def _cmd_sessions_create(req: V1RequestBase) -> V1ResponseBase:
     logging.debug("Creating new session...")
@@ -357,7 +421,7 @@ def _get_product_count(
 def _scroll_page(
         driver: WebDriver,
         scroll_count: int,
-        wait_seconds: float = 2
+        wait_seconds: float = 10
 ):
     for i in range(scroll_count):
 
@@ -381,7 +445,7 @@ def _scroll_page(
 def _smoothScroll_page(
         driver: WebDriver,
         scroll_count: int,
-        wait_seconds: float = 6 # Set default wait to 5 seconds
+        wait_seconds: float = 10 # Set default wait to 5 seconds
 ):
     import random
 
@@ -459,6 +523,7 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
             driver.get(req.url)
         else:
             turnstile_token = _resolve_turnstile_captcha(req, driver)
+        _wait_for_page_to_stabilize(driver)
 
     # set cookies if required
     if req.cookies is not None and len(req.cookies) > 0:
@@ -558,14 +623,6 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
 
         challenge_res.headers = {}
 
-        if req.waitInSeconds and req.waitInSeconds > 0:
-            logging.info(
-                "Waiting " +
-                str(req.waitInSeconds) +
-                " seconds before returning the response..."
-            )
-            time.sleep(req.waitInSeconds)
-
         # Dynamic scrolling
         if req.scroll is not None:
 
@@ -581,6 +638,45 @@ def _evil_logic(req: V1RequestBase, driver: WebDriver, method: str) -> Challenge
                 scroll_count=int(req.smoothScroll)
             )
 
+        if req.waitInSeconds and req.waitInSeconds > 0:
+            logging.info(
+                "Waiting " +
+                str(req.waitInSeconds) +
+                " seconds before returning the response..."
+            )
+            time.sleep(req.waitInSeconds)
+
+        # Final check: make sure the DOM is actually stable
+        # after the extra wait.
+        _wait_for_page_to_stabilize(
+            driver,
+            timeout=30,
+            stable_seconds=3,
+            check_interval=0.5
+        )
+        logging.info(
+            "Final page URL: %s",
+            driver.current_url
+        )
+
+        logging.info(
+            "Final page title: %s",
+            driver.title
+        )
+
+        logging.info(
+            "Product cards: %s",
+            driver.execute_script("""
+                return document.querySelectorAll(
+                    "[data-test='@web/site-top-of-funnel/ProductCardWrapper']"
+                ).length;
+            """)
+        )
+
+        logging.info(
+            "Page HTML length: %s",
+            len(driver.page_source)
+        )
         # Get HTML after scrolling
         challenge_res.response = driver.page_source
 
